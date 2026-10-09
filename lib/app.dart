@@ -5,10 +5,12 @@ import 'core/constants/app_constants.dart';
 import 'core/routes/app_navigator.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/task_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/tasks/task_list_screen.dart';
 import 'services/auth_service.dart';
+import 'services/firestore_service.dart';
 
 class TaskManagerApp extends StatelessWidget {
   const TaskManagerApp({super.key});
@@ -18,6 +20,12 @@ class TaskManagerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthService())),
+        // TaskProvider follows the signed-in user: it listens to that user's
+        // tasks and clears them on logout.
+        ChangeNotifierProxyProvider<AuthProvider, TaskProvider>(
+          create: (_) => TaskProvider(FirestoreService()),
+          update: (_, auth, tasks) => tasks!..updateUser(auth.user?.uid),
+        ),
       ],
       child: MaterialApp(
         title: AppConstants.appName,
@@ -32,13 +40,34 @@ class TaskManagerApp extends StatelessWidget {
 
 /// Chooses the home screen from the Firebase Auth state:
 /// restoring session -> splash, signed in -> task list, otherwise -> login.
-class _AuthGate extends StatelessWidget {
+/// The splash is kept on screen for a minimum time so it is actually visible.
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  static const Duration _minSplashDuration = Duration(seconds: 2);
+
+  bool _splashTimeElapsed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(_minSplashDuration, () {
+      if (mounted) setState(() => _splashTimeElapsed = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    if (!auth.isInitialized) return const SplashScreen();
+
+    if (!_splashTimeElapsed || !auth.isInitialized) {
+      return const SplashScreen();
+    }
     return auth.isAuthenticated ? const TaskListScreen() : const LoginScreen();
   }
 }

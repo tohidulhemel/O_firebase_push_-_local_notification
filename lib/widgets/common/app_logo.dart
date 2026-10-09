@@ -47,7 +47,7 @@ class AppLogo extends StatelessWidget {
                 border: Border.all(color: Colors.white, width: 2),
               ),
               child: Icon(
-                Icons.local_fire_department_outlined,
+                Icons.fire_extinguisher,
                 color: Colors.white,
                 size: badgeSize * 0.6,
               ),

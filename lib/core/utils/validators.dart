@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../constants/app_constants.dart';
+
 class Validators {
   Validators._();
 
@@ -33,5 +35,14 @@ class Validators {
       if (value != password.text) return 'Passwords do not match';
       return null;
     };
+  }
+
+  static String? taskTitle(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Title is required';
+    if (v.length > AppConstants.maxTitleLength) {
+      return 'Title must be ${AppConstants.maxTitleLength} characters or fewer';
+    }
+    return null;
   }
 }

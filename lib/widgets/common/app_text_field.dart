@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import 'field_label.dart';
 
 class AppTextField extends StatefulWidget {
   const AppTextField({
@@ -18,6 +19,11 @@ class AppTextField extends StatefulWidget {
     this.enabled = true,
     this.autofillHints,
     this.onFieldSubmitted,
+    this.uppercaseLabel = true,
+    this.maxLength,
+    this.minLines,
+    this.maxLines = 1,
+    this.suffixIcon,
   });
 
   final String label;
@@ -31,6 +37,15 @@ class AppTextField extends StatefulWidget {
   final bool enabled;
   final Iterable<String>? autofillHints;
   final ValueChanged<String>? onFieldSubmitted;
+
+  /// Figma uses uppercase labels on Login/New Task, sentence case on Edit Task.
+  final bool uppercaseLabel;
+  final int? maxLength;
+  final int? minLines;
+  final int maxLines;
+
+  /// Replaces the default suffix (e.g. a clear button). Ignored for passwords.
+  final Widget? suffixIcon;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -46,47 +61,56 @@ class _AppTextFieldState extends State<AppTextField> {
     );
   }
 
+  Widget? _buildSuffix() {
+    if (widget.isPassword) {
+      return IconButton(
+        icon: Icon(
+          _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+          color: AppColors.textHint,
+        ),
+        onPressed: () => setState(() => _obscure = !_obscure),
+      );
+    }
+    return widget.suffixIcon;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isMultiline = widget.maxLines != 1;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(widget.label.toUpperCase(), style: AppTextStyles.label),
-            const Spacer(),
-            if (widget.labelTrailing != null) widget.labelTrailing!,
-          ],
+        FieldLabel(
+          widget.label,
+          uppercase: widget.uppercaseLabel,
+          trailing: widget.labelTrailing,
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: widget.controller,
           enabled: widget.enabled,
           obscureText: widget.isPassword && _obscure,
-          keyboardType: widget.keyboardType,
+          keyboardType: widget.keyboardType ??
+              (isMultiline ? TextInputType.multiline : null),
           textInputAction: widget.textInputAction,
           validator: widget.validator,
           autofillHints: widget.autofillHints,
           onFieldSubmitted: widget.onFieldSubmitted,
+          maxLength: widget.maxLength,
+          minLines: widget.minLines,
+          maxLines: widget.maxLines,
+          textAlignVertical: isMultiline ? TextAlignVertical.top : null,
           style: AppTextStyles.input,
           decoration: InputDecoration(
             hintText: widget.hint,
             hintStyle: AppTextStyles.hint,
+            counterText: '',
             filled: true,
             fillColor: Colors.white,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            suffixIcon: widget.isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _obscure
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: AppColors.textHint,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  )
-                : null,
+            suffixIcon: _buildSuffix(),
             errorStyle: AppTextStyles.error,
             border: _border(AppColors.border),
             enabledBorder: _border(AppColors.border),

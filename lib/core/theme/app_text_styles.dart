@@ -13,6 +13,12 @@ class AppTextStyles {
         color: AppColors.textPrimary,
       );
 
+  static TextStyle get cardTitle => GoogleFonts.plusJakartaSans(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+      );
+
   static TextStyle get subtitle =>
       GoogleFonts.inter(fontSize: 15, color: AppColors.textSecondary);
 
@@ -21,6 +27,13 @@ class AppTextStyles {
         fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
         color: AppColors.textSecondary,
+      );
+
+  /// Sentence-case label used on the Edit Task screen.
+  static TextStyle get fieldLabel => GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF334155),
       );
 
   static TextStyle get input =>
@@ -44,8 +57,14 @@ class AppTextStyles {
   static TextStyle get body =>
       GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary);
 
+  static TextStyle get chip =>
+      GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600);
+
   static TextStyle get caption =>
       GoogleFonts.inter(fontSize: 12, color: AppColors.textHint);
+
+  static TextStyle get counter =>
+      GoogleFonts.robotoMono(fontSize: 12, color: AppColors.textHint);
 
   static TextStyle get footer => GoogleFonts.inter(
         fontSize: 11,
@@ -54,8 +73,6 @@ class AppTextStyles {
         color: AppColors.textHint,
       );
 
-  static TextStyle get error => GoogleFonts.inter(
-        fontSize: 13,
-        color: AppColors.error,
-      );
+  static TextStyle get error =>
+      GoogleFonts.inter(fontSize: 13, color: AppColors.error);
 }

@@ -13,6 +13,7 @@ class AppButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.variant = AppButtonVariant.filled,
+    this.backgroundColor,
     this.leading,
     this.trailing,
   });
@@ -21,6 +22,9 @@ class AppButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final AppButtonVariant variant;
+
+  /// Fill color of a filled button. Defaults to the primary indigo.
+  final Color? backgroundColor;
   final Widget? leading;
   final Widget? trailing;
 
@@ -28,6 +32,7 @@ class AppButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isFilled = variant == AppButtonVariant.filled;
     final foreground = isFilled ? Colors.white : AppColors.textPrimary;
+    final fill = backgroundColor ?? AppColors.primary;
     final enabled = onPressed != null && !isLoading;
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppSizes.radius),
@@ -58,8 +63,8 @@ class AppButton extends StatelessWidget {
           ? ElevatedButton(
               onPressed: enabled ? onPressed : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                backgroundColor: fill,
+                disabledBackgroundColor: fill.withValues(alpha: 0.6),
                 elevation: 0,
                 shape: shape,
               ),
