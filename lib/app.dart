@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +12,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/tasks/task_list_screen.dart';
 import 'services/auth_service.dart';
+import 'services/fcm_service.dart';
 import 'services/firestore_service.dart';
 
 class TaskManagerApp extends StatelessWidget {
@@ -19,6 +22,16 @@ class TaskManagerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // lazy: false makes FCM start with the app instead of on first use.
+        Provider<FcmService>(
+          lazy: false,
+          create: (_) {
+            final service = FcmService();
+            unawaited(service.initialize());
+            return service;
+          },
+          dispose: (_, service) => service.dispose(),
+        ),
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthService())),
         // TaskProvider follows the signed-in user: it listens to that user's
         // tasks and clears them on logout.
