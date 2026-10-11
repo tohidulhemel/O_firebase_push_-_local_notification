@@ -14,6 +14,8 @@ import 'screens/tasks/task_list_screen.dart';
 import 'services/auth_service.dart';
 import 'services/fcm_service.dart';
 import 'services/firestore_service.dart';
+import 'services/local_notification_service.dart';
+import 'services/notification_service.dart';
 
 class TaskManagerApp extends StatelessWidget {
   const TaskManagerApp({super.key});
@@ -21,23 +23,43 @@ class TaskManagerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
+      // Order matters: a provider can only read providers declared above it.
       providers: [
+        Provider<LocalNotificationService>(
+          create: (_) => LocalNotificationService(),
+          dispose: (_, service) => service.dispose(),
+        ),
         // lazy: false makes FCM start with the app instead of on first use.
         Provider<FcmService>(
           lazy: false,
-          create: (_) {
-            final service = FcmService();
+          create: (context) {
+            final service = FcmService(
+              localNotifications: context.read<LocalNotificationService>(),
+            );
             unawaited(service.initialize());
             return service;
           },
           dispose: (_, service) => service.dispose(),
         ),
+        Provider<FirestoreService>(create: (_) => FirestoreService()),
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthService())),
         // TaskProvider follows the signed-in user: it listens to that user's
         // tasks and clears them on logout.
         ChangeNotifierProxyProvider<AuthProvider, TaskProvider>(
-          create: (_) => TaskProvider(FirestoreService()),
+          create: (context) => TaskProvider(context.read<FirestoreService>()),
           update: (_, auth, tasks) => tasks!..updateUser(auth.user?.uid),
+        ),
+        // Turns notification taps into navigation. Started with the app so
+        // it can pick up the notification that launched it.
+        Provider<NotificationService>(
+          lazy: false,
+          create: (context) => NotificationService(
+            fcm: context.read<FcmService>(),
+            local: context.read<LocalNotificationService>(),
+            firestore: context.read<FirestoreService>(),
+            auth: context.read<AuthProvider>(),
+          )..start(),
+          dispose: (_, service) => service.dispose(),
         ),
       ],
       child: MaterialApp(

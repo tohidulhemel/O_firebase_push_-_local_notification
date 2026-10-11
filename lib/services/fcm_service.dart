@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
 import '../models/notification_payload.dart';
+import 'local_notification_service.dart';
 
 /// Runs in its own isolate when a message arrives while the app is in the
 /// background or terminated. It must be a top-level function, and it has to
@@ -21,14 +22,23 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 /// Everything about Firebase Cloud Messaging: permission, token, and
 /// detecting in which app state a notification was received or opened.
+/// Foreground messages are handed to [LocalNotificationService] to be shown.
 class FcmService {
-  FcmService({FirebaseMessaging? messaging})
-      : _messaging = messaging ?? FirebaseMessaging.instance;
+  FcmService({
+    required LocalNotificationService localNotifications,
+    FirebaseMessaging? messaging,
+  })  : _localNotifications = localNotifications,
+        _messaging = messaging ?? FirebaseMessaging.instance;
 
+  final LocalNotificationService _localNotifications;
   final FirebaseMessaging _messaging;
   final StreamController<NotificationPayload> _payloadController =
       StreamController<NotificationPayload>.broadcast();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
+
+  /// Completes once getInitialMessage() has been asked, so a caller that
+  /// starts early still waits for the real answer.
+  final Completer<void> _initialMessageRead = Completer<void>();
 
   bool _initialized = false;
   String? _token;
@@ -42,8 +52,11 @@ class FcmService {
   AuthorizationStatus? get permissionStatus => _permissionStatus;
 
   /// Returns the notification that launched the app from the terminated state
-  /// (or null), and clears it so it is handled only once.
-  NotificationPayload? takeInitialPayload() {
+  /// (or null), and clears it so it is handled only once. It waits for
+  /// [initialize] to read the initial message, so call it after [initialize]
+  /// has been started.
+  Future<NotificationPayload?> takeInitialPayload() async {
+    await _initialMessageRead.future;
     final payload = _initialPayload;
     _initialPayload = null;
     return payload;
@@ -55,15 +68,18 @@ class FcmService {
     _initialized = true;
 
     _listenForMessages();
+    // Read the launch notification first so navigation is not held up by
+    // the permission dialogs below.
     await _readInitialMessage();
+    await _initializeLocalNotifications();
     await _requestPermission();
+    await _requestLocalPermission();
     await _retrieveToken();
   }
 
   void _listenForMessages() {
     _subscriptions
-      ..add(FirebaseMessaging.onMessage
-          .listen((m) => _emit(m, NotificationSource.foreground)))
+      ..add(FirebaseMessaging.onMessage.listen(_onForegroundMessage))
       ..add(FirebaseMessaging.onMessageOpenedApp
           .listen((m) => _emit(m, NotificationSource.background)))
       ..add(_messaging.onTokenRefresh.listen((token) {
@@ -72,23 +88,46 @@ class FcmService {
       }));
   }
 
-  void _emit(RemoteMessage message, NotificationSource source) {
+  /// FCM never draws a notification while the app is open, so we draw it.
+  void _onForegroundMessage(RemoteMessage message) {
+    final payload = _emit(message, NotificationSource.foreground);
+    if (payload.title == null && payload.body == null) {
+      debugPrint('[FCM] Foreground message has no title or body, '
+          'so no notification is shown.');
+      return;
+    }
+    unawaited(_localNotifications.show(payload));
+  }
+
+  NotificationPayload _emit(RemoteMessage message, NotificationSource source) {
     final payload = NotificationPayload.fromRemoteMessage(message, source);
     debugPrint('[FCM] ${source.name}: $payload');
     _payloadController.add(payload);
+    return payload;
   }
 
   Future<void> _readInitialMessage() async {
     try {
       final message = await _messaging.getInitialMessage();
-      if (message == null) return;
-      _initialPayload = NotificationPayload.fromRemoteMessage(
-        message,
-        NotificationSource.terminated,
-      );
-      debugPrint('[FCM] terminated: $_initialPayload');
+      if (message != null) {
+        _initialPayload = NotificationPayload.fromRemoteMessage(
+          message,
+          NotificationSource.terminated,
+        );
+        debugPrint('[FCM] terminated: $_initialPayload');
+      }
     } catch (e) {
       debugPrint('[FCM] Could not read initial message: $e');
+    } finally {
+      _initialMessageRead.complete();
+    }
+  }
+
+  Future<void> _initializeLocalNotifications() async {
+    try {
+      await _localNotifications.initialize();
+    } catch (e) {
+      debugPrint('[FCM] Local notifications failed to initialize: $e');
     }
   }
 
@@ -104,6 +143,16 @@ class FcmService {
       }
     } catch (e) {
       debugPrint('[FCM] Permission request failed: $e');
+    }
+  }
+
+  /// Runs after the FCM request, so it only asks if that did not grant it.
+  Future<void> _requestLocalPermission() async {
+    try {
+      final granted = await _localNotifications.requestPermission();
+      debugPrint('[FCM] Local notifications allowed: $granted');
+    } catch (e) {
+      debugPrint('[FCM] Local permission check failed: $e');
     }
   }
 

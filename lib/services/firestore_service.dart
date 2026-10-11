@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -20,6 +22,7 @@ class FirestoreService {
   /// Firestore queues writes made offline and only confirms them once the
   /// server answers. We stop waiting after this long so the UI never hangs.
   static const Duration _writeTimeout = Duration(seconds: 5);
+  static const Duration _readTimeout = Duration(seconds: 5);
 
   final FirebaseFirestore _db;
 
@@ -30,6 +33,24 @@ class FirestoreService {
     return _tasks(uid).snapshots().map(
           (snapshot) => snapshot.docs.map(TaskModel.fromFirestore).toList(),
         );
+  }
+
+  /// Loads one task. Returns null if it does not exist (or the id is not a
+  /// valid document id); throws [TaskFailure] if it could not be read.
+  Future<TaskModel?> getTask(String uid, String taskId) async {
+    try {
+      final doc = await _tasks(uid).doc(taskId).get().timeout(_readTimeout);
+      return doc.exists ? TaskModel.fromFirestore(doc) : null;
+    } on ArgumentError {
+      return null;
+    } on TimeoutException {
+      throw const TaskFailure(
+        'Could not reach the server. Check your internet connection.',
+      );
+    } on FirebaseException catch (e) {
+      debugPrint('Firestore error: ${e.code}');
+      throw TaskFailure(_messageFor(e));
+    }
   }
 
   Future<void> addTask(String uid, TaskModel task) {
