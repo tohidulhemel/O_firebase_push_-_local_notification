@@ -11,11 +11,6 @@ import 'fcm_service.dart';
 import 'firestore_service.dart';
 import 'local_notification_service.dart';
 
-/// The single place where notification taps become navigation.
-///
-/// Three entry points feed it (background tap, app launch by a notification,
-/// tap on a local notification). Each tap is queued, and navigation only
-/// happens once the Navigator exists and the user is signed in.
 class NotificationService {
   NotificationService({
     required FcmService fcm,
@@ -43,20 +38,17 @@ class NotificationService {
     _started = true;
 
     _subscriptions
-      // Foreground FCM messages only display a local notification (see
-      // FcmService), so only taps from the background are handled here.
+      
       ..add(_fcm.payloads
           .where((p) => p.source == NotificationSource.background)
           .listen(_enqueue))
       ..add(_local.taps.listen(_enqueue));
 
-    // Navigation may be waiting for the session to be restored or for login.
     _auth.addListener(_onAuthChanged);
 
     unawaited(_readLaunchNotification());
   }
 
-  /// The notification (if any) that started the app from the terminated state.
   Future<void> _readLaunchNotification() async {
     try {
       final fromFcm = await _fcm.takeInitialPayload();
@@ -87,8 +79,7 @@ class NotificationService {
       _retryAfterNextFrame();
       return;
     }
-    // Gate 2: wait until Firebase Auth has restored the saved session.
-    // The auth listener calls this method again when it is known.
+   
     if (!_auth.isInitialized) return;
     // Gate 3: tasks belong to a signed-in user. Stay queued until login.
     final uid = _auth.user?.uid;
@@ -116,13 +107,15 @@ class NotificationService {
     binding.ensureVisualUpdate();
   }
 
-  /// Returns false if navigation could not be done yet (and should be retried).
   Future<bool> _open(NotificationPayload payload, String uid) async {
     TaskModel? task;
     String? message;
 
     final taskId = payload.taskId;
-    if (taskId != null) {
+    if (payload.type == NotificationPayload.typeTaskDeleted) {
+      
+      message = 'This task has been deleted.';
+    } else if (taskId != null) {
       try {
         task = await _firestore.getTask(uid, taskId);
         if (task == null) message = 'That task no longer exists.';
@@ -131,7 +124,6 @@ class NotificationService {
       }
     }
 
-    // The user may have signed out while the task was loading.
     if (_auth.user?.uid != uid) return false;
     final navigator = navigatorKey.currentState;
     if (navigator == null) return false;

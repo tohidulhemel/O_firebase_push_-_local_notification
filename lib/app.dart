@@ -23,13 +23,11 @@ class TaskManagerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      // Order matters: a provider can only read providers declared above it.
       providers: [
         Provider<LocalNotificationService>(
           create: (_) => LocalNotificationService(),
           dispose: (_, service) => service.dispose(),
         ),
-        // lazy: false makes FCM start with the app instead of on first use.
         Provider<FcmService>(
           lazy: false,
           create: (context) {
@@ -43,14 +41,14 @@ class TaskManagerApp extends StatelessWidget {
         ),
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthService())),
-        // TaskProvider follows the signed-in user: it listens to that user's
-        // tasks and clears them on logout.
+        
         ChangeNotifierProxyProvider<AuthProvider, TaskProvider>(
-          create: (context) => TaskProvider(context.read<FirestoreService>()),
+          create: (context) => TaskProvider(
+            context.read<FirestoreService>(),
+            context.read<LocalNotificationService>(),
+          ),
           update: (_, auth, tasks) => tasks!..updateUser(auth.user?.uid),
         ),
-        // Turns notification taps into navigation. Started with the app so
-        // it can pick up the notification that launched it.
         Provider<NotificationService>(
           lazy: false,
           create: (context) => NotificationService(
@@ -73,9 +71,6 @@ class TaskManagerApp extends StatelessWidget {
   }
 }
 
-/// Chooses the home screen from the Firebase Auth state:
-/// restoring session -> splash, signed in -> task list, otherwise -> login.
-/// The splash is kept on screen for a minimum time so it is actually visible.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 

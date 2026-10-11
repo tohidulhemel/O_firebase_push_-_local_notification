@@ -3,15 +3,12 @@ class AppConstants {
 
   static const String appName = 'Firebase Task Manager';
 
-  /// Web OAuth client ID (client_type 3 in google-services.json).
-  /// It is a public identifier, not a secret.
   static const String googleWebClientId =
       '226340103987-elhl7325tr6p4kunsfnss20fc996o6h8.apps.googleusercontent.com';
 
   static const int maxTitleLength = 60;
   static const int maxDescriptionLength = 1000;
 
-  /// Values for the "Course Bucket" dropdown. Edit this list to your courses.
   static const List<String> courseBuckets = ['CS 304', 'CS 421'];
 }
 

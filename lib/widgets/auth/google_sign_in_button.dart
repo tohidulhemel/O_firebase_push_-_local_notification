@@ -20,7 +20,6 @@ class GoogleSignInButton extends StatelessWidget {
       variant: AppButtonVariant.outlined,
       isLoading: isLoading,
       onPressed: onPressed,
-      // Simple "G" mark; swap for the official asset if you add one.
       leading: Text(
         'G',
         style: GoogleFonts.inter(

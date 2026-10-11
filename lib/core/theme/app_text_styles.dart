@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Getters (not fields) because GoogleFonts styles are created at runtime.
 class AppTextStyles {
   AppTextStyles._();
 

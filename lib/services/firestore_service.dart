@@ -19,8 +19,7 @@ class FirestoreService {
   FirestoreService({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  /// Firestore queues writes made offline and only confirms them once the
-  /// server answers. We stop waiting after this long so the UI never hangs.
+
   static const Duration _writeTimeout = Duration(seconds: 5);
   static const Duration _readTimeout = Duration(seconds: 5);
 
@@ -53,9 +52,15 @@ class FirestoreService {
     }
   }
 
-  Future<void> addTask(String uid, TaskModel task) {
+  /// Creates a task and returns it with its Firestore document ID.
+  ///
+  /// The returned task is available only after the write completes, so callers
+  /// can safely use its ID in a local notification payload.
+  Future<TaskModel> addTask(String uid, TaskModel task) async {
     final ref = _tasks(uid).doc();
-    return _write(() => ref.set(task.copyWith(id: ref.id).toCreateMap()));
+    final createdTask = task.copyWith(id: ref.id);
+    await _write(() => ref.set(createdTask.toCreateMap()));
+    return createdTask;
   }
 
   Future<void> updateTask(String uid, TaskModel task) {
@@ -74,7 +79,12 @@ class FirestoreService {
 
   Future<void> _write(Future<void> Function() action) async {
     try {
-      await action().timeout(_writeTimeout, onTimeout: () {});
+      
+      await action().timeout(_writeTimeout);
+    } on TimeoutException {
+      throw const TaskFailure(
+        'Saving took too long. Check your connection and try again.',
+      );
     } on FirebaseException catch (e) {
       debugPrint('Firestore error: ${e.code}');
       throw TaskFailure(_messageFor(e));

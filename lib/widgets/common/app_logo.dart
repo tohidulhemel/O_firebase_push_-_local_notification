@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// Flutter mark in a white tile with an amber "Firebase" badge (as in Figma).
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 80});
 

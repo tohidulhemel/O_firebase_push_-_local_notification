@@ -32,11 +32,8 @@ class TaskModel {
   final String userId;
   final String? course;
 
-  /// Firestore -> Dart. Missing or null fields fall back to safe defaults.
   factory TaskModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? <String, dynamic>{};
-    // createdAt is null for a moment after a local write, until the server
-    // timestamp arrives, so fall back to "now".
     final createdAt =
         (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
@@ -56,7 +53,6 @@ class TaskModel {
     );
   }
 
-  /// Dart -> Firestore for a new document (createdAt is set by the server).
   Map<String, dynamic> toCreateMap() => {
         'id': id,
         'title': title,
@@ -69,7 +65,6 @@ class TaskModel {
         'course': course,
       };
 
-  /// Fields that may change after creation (id, userId, createdAt never do).
   Map<String, dynamic> toUpdateMap() => {
         'title': title,
         'description': description,

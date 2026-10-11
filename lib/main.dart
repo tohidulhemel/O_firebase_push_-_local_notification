@@ -11,8 +11,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Must be registered before runApp so Android can reach it when the app is
-  // in the background or terminated.
+ 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   runApp(const TaskManagerApp());
 }

@@ -10,6 +10,15 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 enum NotificationSource { foreground, background, terminated, localTap }
 
 class NotificationPayload {
+  // Notification event types created by the Flutter task workflow. Remote FCM
+  // test messages may continue using the generic "task" type.
+  static const String typeTask = 'task';
+  static const String typeTaskCreated = 'task_created';
+  static const String typeTaskUpdated = 'task_updated';
+  static const String typeTaskDeleted = 'task_deleted';
+  static const String typeTaskCompleted = 'task_completed';
+  static const String typeTaskReopened = 'task_reopened';
+
   const NotificationPayload({
     required this.source,
     this.messageId,
@@ -28,11 +37,8 @@ class NotificationPayload {
   final String? body;
   final Map<String, String> data;
 
-  /// True when the notification points at a specific task.
   bool get hasTask => taskId != null;
 
-  /// Expected data payload: {"type": "task", "taskId": "<document id>"}.
-  /// Missing or empty values are treated as absent.
   factory NotificationPayload.fromRemoteMessage(
     RemoteMessage message,
     NotificationSource source,
@@ -51,8 +57,6 @@ class NotificationPayload {
     );
   }
 
-  /// Rebuilds the payload from the JSON string stored inside a local
-  /// notification. Returns null if the string is not valid.
   static NotificationPayload? fromJsonString(
     String raw, {
     required NotificationSource source,
@@ -71,8 +75,6 @@ class NotificationPayload {
     }
   }
 
-  /// The string saved as the local notification's payload, so `type` and
-  /// `taskId` survive until the user taps it.
   String toJsonString() => jsonEncode({
         if (type != null) 'type': type,
         if (taskId != null) 'taskId': taskId,

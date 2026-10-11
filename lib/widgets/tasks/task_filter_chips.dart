@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/task_provider.dart';
 
-/// All / Pending / Completed chips with live counts.
 class TaskFilterChips extends StatelessWidget {
   const TaskFilterChips({super.key});
 

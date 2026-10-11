@@ -71,8 +71,6 @@ class LocalNotificationService {
     debugPrint('[LocalNotification] Initialized, channel "$channelId" ready');
   }
 
-  /// Android 13+ runtime permission. Does nothing if it is already granted,
-  /// so it never shows a second dialog after FCM has asked.
   Future<bool> requestPermission() async {
     await initialize();
     final android = _android;
@@ -100,9 +98,7 @@ class LocalNotificationService {
     }
   }
 
-  /// If the app was started by tapping one of our local notifications, returns
-  /// its payload. The tap callback does not fire for the tap that launches the
-  /// app, so the launch details are read separately. Call once at startup.
+
   Future<NotificationPayload?> takeLaunchPayload() async {
     await initialize();
     final details = await _plugin.getNotificationAppLaunchDetails();
@@ -135,10 +131,7 @@ class LocalNotificationService {
     _tapController.add(payload);
   }
 
-  /// Android notification IDs must fit in a 32-bit integer, so a raw
-  /// millisecond timestamp would be rejected. The ID is built from a stable
-  /// hash instead: the same task always maps to the same ID (a new reminder
-  /// replaces the old one), and different tasks get different IDs.
+
   int _notificationId(NotificationPayload payload) {
     final key = payload.taskId ??
         payload.messageId ??

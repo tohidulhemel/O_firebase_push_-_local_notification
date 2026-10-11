@@ -7,10 +7,6 @@ import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
 import '../models/notification_payload.dart';
 import 'local_notification_service.dart';
-
-/// Runs in its own isolate when a message arrives while the app is in the
-/// background or terminated. It must be a top-level function, and it has to
-/// initialize Firebase itself because the isolate does not share the app's state.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
@@ -20,9 +16,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       'data=${message.data}');
 }
 
-/// Everything about Firebase Cloud Messaging: permission, token, and
-/// detecting in which app state a notification was received or opened.
-/// Foreground messages are handed to [LocalNotificationService] to be shown.
+
 class FcmService {
   FcmService({
     required LocalNotificationService localNotifications,
@@ -36,8 +30,7 @@ class FcmService {
       StreamController<NotificationPayload>.broadcast();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
-  /// Completes once getInitialMessage() has been asked, so a caller that
-  /// starts early still waits for the real answer.
+ 
   final Completer<void> _initialMessageRead = Completer<void>();
 
   bool _initialized = false;
@@ -51,10 +44,7 @@ class FcmService {
   String? get token => _token;
   AuthorizationStatus? get permissionStatus => _permissionStatus;
 
-  /// Returns the notification that launched the app from the terminated state
-  /// (or null), and clears it so it is handled only once. It waits for
-  /// [initialize] to read the initial message, so call it after [initialize]
-  /// has been started.
+
   Future<NotificationPayload?> takeInitialPayload() async {
     await _initialMessageRead.future;
     final payload = _initialPayload;
@@ -62,14 +52,12 @@ class FcmService {
     return payload;
   }
 
-  /// Safe to call more than once; only the first call does anything.
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
 
     _listenForMessages();
-    // Read the launch notification first so navigation is not held up by
-    // the permission dialogs below.
+   
     await _readInitialMessage();
     await _initializeLocalNotifications();
     await _requestPermission();

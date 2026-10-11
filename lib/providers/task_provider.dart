@@ -2,17 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/notification_payload.dart';
 import '../models/task_model.dart';
 import '../services/firestore_service.dart';
+import '../services/local_notification_service.dart';
 
 enum TaskFilter { all, pending, completed }
 
 class TaskProvider extends ChangeNotifier {
-  TaskProvider(this._service);
+  TaskProvider(this._service, this._localNotifications);
 
   static const String _notSignedIn = 'Please sign in again.';
 
   final FirestoreService _service;
+  final LocalNotificationService _localNotifications;
   StreamSubscription<List<TaskModel>>? _subscription;
 
   String? _uid;
@@ -40,9 +43,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  /// Called by ChangeNotifierProxyProvider whenever the signed-in user changes.
-  /// Starts listening to that user's tasks, or clears everything on logout.
-  /// It does not call notifyListeners because it runs during a build.
+
   void updateUser(String? uid) {
     if (uid == _uid) return;
     _uid = uid;
@@ -76,7 +77,6 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // The methods below return an error message, or null when they succeed.
 
   Future<String?> addTask({
     required String title,
@@ -84,7 +84,7 @@ class TaskProvider extends ChangeNotifier {
     required DateTime dueDate,
     required TaskPriority priority,
   }) {
-    return _withUser((uid) {
+    return _withUser((uid) async {
       final task = TaskModel(
         id: '',
         title: title.trim(),
@@ -95,19 +95,98 @@ class TaskProvider extends ChangeNotifier {
         createdAt: DateTime.now(),
         userId: uid,
       );
-      return _service.addTask(uid, task);
+      final createdTask = await _service.addTask(uid, task);
+
+      await _showTaskNotification(
+        type: NotificationPayload.typeTaskCreated,
+        taskId: createdTask.id,
+        title: 'Task Created',
+        body: 'Your task "${createdTask.title}" has been added successfully.',
+      );
     });
   }
 
-  Future<String?> updateTask(TaskModel task) =>
-      _withUser((uid) => _service.updateTask(uid, task));
+  Future<String?> updateTask(TaskModel task) => _withUser((uid) async {
+        TaskModel? previousTask;
+        for (final existing in _tasks) {
+          if (existing.id == task.id) {
+            previousTask = existing;
+            break;
+          }
+        }
 
-  Future<String?> toggleCompleted(TaskModel task) => _withUser(
-        (uid) => _service.setCompleted(uid, task.id, !task.isCompleted),
-      );
+        await _service.updateTask(uid, task);
 
-  Future<String?> deleteTask(TaskModel task) =>
-      _withUser((uid) => _service.deleteTask(uid, task.id));
+        if (previousTask != null &&
+            previousTask.isCompleted != task.isCompleted) {
+          final completed = task.isCompleted;
+          await _showTaskNotification(
+            type: completed
+                ? NotificationPayload.typeTaskCompleted
+                : NotificationPayload.typeTaskReopened,
+            taskId: task.id,
+            title: completed ? 'Task Completed' : 'Task Reopened',
+            body: completed
+                ? 'Great job! "${task.title}" has been marked as completed.'
+                : '"${task.title}" has been marked as pending.',
+          );
+        } else {
+          await _showTaskNotification(
+            type: NotificationPayload.typeTaskUpdated,
+            taskId: task.id,
+            title: 'Task Updated',
+            body: 'Your task "${task.title}" has been updated successfully.',
+          );
+        }
+      });
+
+  Future<String?> toggleCompleted(TaskModel task) => _withUser((uid) async {
+        final willBeCompleted = !task.isCompleted;
+        await _service.setCompleted(uid, task.id, willBeCompleted);
+
+        if (willBeCompleted) {
+          await _showTaskNotification(
+            type: NotificationPayload.typeTaskCompleted,
+            taskId: task.id,
+            title: 'Task Completed',
+            body: 'Great job! "${task.title}" has been marked as completed.',
+          );
+        } else {
+          await _showTaskNotification(
+            type: NotificationPayload.typeTaskReopened,
+            taskId: task.id,
+            title: 'Task Reopened',
+            body: '"${task.title}" has been marked as pending.',
+          );
+        }
+      });
+
+  Future<String?> deleteTask(TaskModel task) => _withUser((uid) async {
+        await _service.deleteTask(uid, task.id);
+        await _showTaskNotification(
+          type: NotificationPayload.typeTaskDeleted,
+          taskId: task.id,
+          title: 'Task Deleted',
+          body: '"${task.title}" has been deleted successfully.',
+        );
+      });
+
+  Future<void> _showTaskNotification({
+    required String type,
+    required String taskId,
+    required String title,
+    required String body,
+  }) {
+    return _localNotifications.show(
+      NotificationPayload(
+        source: NotificationSource.foreground,
+        type: type,
+        taskId: taskId,
+        title: title,
+        body: body,
+      ),
+    );
+  }
 
   Future<String?> _withUser(Future<void> Function(String uid) action) async {
     final uid = _uid;
@@ -117,10 +196,12 @@ class TaskProvider extends ChangeNotifier {
       return null;
     } on TaskFailure catch (e) {
       return e.message;
+    } catch (e) {
+      debugPrint('Task operation failed: $e');
+      return 'Something went wrong. Please try again.';
     }
   }
 
-  /// Pending tasks first (earliest due date first), completed tasks last.
   int _compare(TaskModel a, TaskModel b) {
     if (a.isCompleted != b.isCompleted) return a.isCompleted ? 1 : -1;
     final byDue = a.dueDate.compareTo(b.dueDate);
